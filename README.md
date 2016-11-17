@@ -2,3 +2,5 @@
 # git-commands
 
 Remember to put these in a path that's available in `PATH`. Git will take care of the rest. So, `git-search` put anywhere in the PATH means that running `git search` will call it.
+
+TODO take a look at https://github.com/kortaggio/dotfiles/blob/master/.gitconfig -- a lot of short commands can be implemented as aliases that will execute command line commands
