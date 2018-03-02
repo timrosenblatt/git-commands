@@ -1,0 +1,82 @@
+#!/usr/bin/env ruby
+
+require 'open3'
+
+# Gets the files that have been changed since fork. If they are
+# spec files, it adds them to a runlist, and if they're not spec files
+# it will try and see if there is a spec for that file (using Rails
+# path conventions)
+class SpecDiff
+  def call
+    unsplit_files = `git whatchanged --name-only --pretty="" origin..HEAD`
+
+    files = unsplit_files.split("\n")
+
+    run_list = []
+
+    files.each do |filename|
+      if is_a_spec?(filename)
+        run_list << filename
+      elsif has_a_spec?(filename)
+        run_list << spec_for(filename)
+      end
+    end
+
+    command = "spec #{run_list.uniq.join(' ')}"
+
+    puts 'Running'
+    puts command
+    run_command command
+  end
+
+  private
+
+  def is_a_spec?(filename)
+    filename.match('_spec.rb')
+  end
+
+  def has_a_spec?(filename)
+    spec_filename = spec_for(filename)
+    return false if spec_filename.nil?
+
+    File.exist?(spec_filename)
+  end
+
+  # Attempts to convert a non-spec filename into a spec filename
+  # following Rails conventions
+  def spec_for(filename)
+    filename = filename.dup
+    return nil unless filename[-3..-1] == '.rb'
+    filename[-3..-1] = ''
+    filename += '_spec.rb'
+
+    parts = filename.split '/'
+
+    if parts.first == 'app'
+      parts.shift
+    end
+
+    parts.unshift('spec').compact.join '/'
+  end
+
+  # Streams the output a character at a time, since the Rspec output is one
+  # dot per spec on a single line.
+  # based largely off https://nickcharlton.net/posts/ruby-subprocesses-with-stdout-stderr-streams.html
+  def run_command(cmd)
+    Open3.popen3(cmd) do |stdin, stdout, stderr, thread|
+      # read each stream from a new thread
+      { :out => stdout, :err => stderr }.each do |key, stream|
+        Thread.new do
+          until (character = stream.getc).nil? do
+            putc character
+          end
+        end
+      end
+
+      thread.join # don't exit until the external process is done
+    end
+  end
+
+end
+
+SpecDiff.new.call
