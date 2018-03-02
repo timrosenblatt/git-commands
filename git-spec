@@ -8,7 +8,13 @@ require 'open3'
 # path conventions)
 class SpecDiff
   def call
-    unsplit_files = `git whatchanged --name-only --pretty="" origin..HEAD`
+    ancestor = `git merge-base HEAD origin`
+
+    # This will return changes that haven't been comitted yet.
+    unsplit_files = `git diff --name-only #{ancestor}`
+
+    # This will return only committed changes.
+    # unsplit_files = `git diff --name-only $(ancestor)..HEAD`
 
     files = unsplit_files.split("\n")
 
