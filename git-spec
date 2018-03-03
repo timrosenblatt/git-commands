@@ -7,6 +7,7 @@ require 'open3'
 # it will try and see if there is a spec for that file (using Rails
 # path conventions)
 class SpecDiff
+  # @return [Fixnum] the spec status code
   def call
     ancestor = `git merge-base HEAD origin`
 
@@ -32,7 +33,9 @@ class SpecDiff
 
     puts 'Running'
     puts command
-    run_command command
+    exit_status = run_command(command)
+
+    exit_status
   end
 
   private
@@ -68,7 +71,10 @@ class SpecDiff
   # Streams the output a character at a time, since the Rspec output is one
   # dot per spec on a single line.
   # based largely off https://nickcharlton.net/posts/ruby-subprocesses-with-stdout-stderr-streams.html
+  # @return [Fixnum] the status code from the spec command
   def run_command(cmd)
+    exit_status = nil
+
     Open3.popen3(cmd) do |stdin, stdout, stderr, thread|
       # read each stream from a new thread
       { :out => stdout, :err => stderr }.each do |key, stream|
@@ -80,9 +86,12 @@ class SpecDiff
       end
 
       thread.join # don't exit until the external process is done
+      # thread.value returns a Process::Status object
+      exit_status = thread.value.exitstatus
     end
-  end
 
+    exit_status
+  end
 end
 
-SpecDiff.new.call
+exit SpecDiff.new.call
